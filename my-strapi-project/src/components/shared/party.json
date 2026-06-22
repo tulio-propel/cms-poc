@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_shared_parties",
+  "info": {
+    "displayName": "Party"
+  },
+  "options": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "address": {
+      "type": "text"
+    },
+    "email": {
+      "type": "email"
+    }
+  },
+  "config": {}
+}

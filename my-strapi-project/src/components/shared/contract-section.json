@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_shared_contract_sections",
+  "info": {
+    "displayName": "Contract Section"
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string"
+    },
+    "body": {
+      "type": "blocks"
+    }
+  },
+  "config": {}
+}

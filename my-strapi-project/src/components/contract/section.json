@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_contract_sections",
+  "info": {
+    "displayName": "Section",
+    "description": "Purpose: represent each contract clause/section."
+  },
+  "options": {},
+  "attributes": {
+    "order": {
+      "type": "integer",
+      "required": true
+    },
+    "heading": {
+      "type": "string",
+      "required": true
+    },
+    "body": {
+      "type": "blocks",
+      "required": true
+    }
+  },
+  "config": {}
+}
