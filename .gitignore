@@ -38,6 +38,8 @@ libpeerconnection.log
 testem.log
 ng-demo/typings
 __screenshots__/
+contracts-result.*
+initial-page.*
 
 # System files
 .DS_Store
