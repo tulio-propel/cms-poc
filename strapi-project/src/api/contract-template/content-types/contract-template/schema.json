@@ -15,11 +15,6 @@
     }
   },
   "attributes": {
-    "key": {
-      "type": "uid",
-      "targetField": "title",
-      "required": true
-    },
     "title": {
       "type": "string",
       "pluginOptions": {
