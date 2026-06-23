@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../environments/environment';
 
 export interface Section {
   id: number;
@@ -22,6 +23,11 @@ export interface ContractTemplate {
   locale: string;
 }
 
+export interface StrapiResponse {
+  data: ContractTemplate[];
+  meta: any;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -30,13 +36,18 @@ export class StrapiService {
 
   constructor(private http: HttpClient) {}
 
-  getContractTemplate(key: string, locale: string): Observable<{ data: ContractTemplate }> {
+  getContractTemplate(templateKey: string, locale: string): Observable<StrapiResponse> {
     const url = `${this.apiUrl}/contract-templates`;
-    return this.http.get<{ data: ContractTemplate }>(url, {
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${environment.strapiApiKey}`
+    });
+
+    return this.http.get<StrapiResponse>(url, {
+      headers: headers,
       params: {
-        'filters[key][$eq]': key,
+        'filters[key][$eq]': templateKey,
         'locale': locale,
-        'populate': 'sections'
+        'populate': '*'
       }
     });
   }

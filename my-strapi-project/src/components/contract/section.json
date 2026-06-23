@@ -17,6 +17,20 @@
     "body": {
       "type": "blocks",
       "required": true
+    },
+    "body_html": {
+      "type": "customField",
+      "customField": "plugin::ckeditor5.CKEditor",
+      "options": {
+        "preset": "defaultHtml"
+      }
+    },
+    "body_markdown": {
+      "type": "customField",
+      "customField": "plugin::ckeditor5.CKEditor",
+      "options": {
+        "preset": "defaultMarkdown"
+      }
     }
   },
   "config": {}
