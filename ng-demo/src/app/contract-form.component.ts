@@ -143,17 +143,10 @@ import { ContractData } from './models';
       }
       
       <div class="contracts-container">
-        @if (englishContract()) {
+        @for (contract of contracts(); track contract.locale) {
           <div class="contract-preview">
-            <h3>English Contract</h3>
-            <div class="contract-content" [innerHTML]="englishContract()"></div>
-          </div>
-        }
-        
-        @if (portugueseContract()) {
-          <div class="contract-preview">
-            <h3>Portuguese Contract</h3>
-            <div class="contract-content" [innerHTML]="portugueseContract()"></div>
+            <h3>{{ contract.title }}</h3>
+            <div class="contract-content" [innerHTML]="contract.html"></div>
           </div>
         }
       </div>
@@ -178,7 +171,11 @@ import { ContractData } from './models';
     @media (max-width: 768px) { .contracts-container { grid-template-columns: 1fr; } }
     .contract-preview { border: 1px solid #ddd; border-radius: 8px; padding: 20px; background-color: white; }
     .contract-preview h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-    .contract-content { white-space: pre-wrap; line-height: 1.6; }
+    .contract-content { line-height: 1.6; }
+    .contract-content h2 { font-size: 18px; font-weight: 700; color: #1a1a2e; margin: 24px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0; }
+    .contract-content h2:first-of-type { margin-top: 0; }
+    .contract-content p { margin: 8px 0; color: #333; }
+    .contract-content strong { font-weight: 600; color: #1a1a2e; }
     .error-message { color: #dc3545; font-size: 14px; margin-top: 5px; }
   `
 })
@@ -188,14 +185,8 @@ export class ContractFormComponent {
   
   loading = signal(false);
   error = signal('');
-  
-  // Each contract has plain-text, HTML, and markdown versions
-  englishPlain = signal('');
-  englishHtml = signal('');
-  englishMarkdown = signal('');
-  portuguesePlain = signal('');
-  portugueseHtml = signal('');
-  portugueseMarkdown = signal('');
+
+  contracts = signal<Array<{ locale: string; title: string; html: string }>>([]);
   
   contractForm = this.fb.group({
     fullName: ['John Doe', Validators.required],
@@ -258,52 +249,114 @@ export class ContractFormComponent {
   private generateContracts(data: ContractData) {
     this.loading.set(true);
     this.error.set('');
-    this.englishPlain.set('');
-    this.englishHtml.set('');
-    this.englishMarkdown.set('');
-    this.portuguesePlain.set('');
-    this.portugueseHtml.set('');
-    this.portugueseMarkdown.set('');
+    this.contracts.set([]);
+    const seenLocales = new Set<string>();
     
-    this.strapiService.getContractTemplate('personal-loan-agreement', 'en').subscribe({
-      next: (englishTemplate) => {
-        this.strapiService.getContractTemplate('personal-loan-agreement_ptBR', 'pt-BR').subscribe({
-          next: (portugueseTemplate) => {
-            try {
-              const english = this.renderContract(englishTemplate.data[0]?.sections ?? [], data);
-              const portuguese = this.renderContract(portugueseTemplate.data[0]?.sections ?? [], data);
-              
-              this.englishPlain.set(english.plain);
-              this.englishHtml.set(english.html);
-              this.englishMarkdown.set(english.markdown);
-              this.portuguesePlain.set(portuguese.plain);
-              this.portugueseHtml.set(portuguese.html);
-              this.portugueseMarkdown.set(portuguese.markdown);
-            } catch (err) {
-              this.error.set('Failed to process contract templates.');
-              console.error('Error processing contracts:', err);
-            } finally {
-              this.loading.set(false);
+    this.strapiService.getContractTemplates().subscribe({
+      next: (defaultResponse) => {
+        if (!defaultResponse.data?.length) {
+          this.loading.set(false);
+          return;
+        }
+        
+        const baseEntry = defaultResponse.data[0];
+        const localeCodes = this.collectLocaleCodes(baseEntry);
+        
+        this.addContract(baseEntry, data, seenLocales);
+        
+        if (localeCodes.length === 0) {
+          this.contracts.set([...contractsSnapshot()]);
+          this.loading.set(false);
+          return;
+        }
+        
+        let completed = 0;
+        for (const locale of localeCodes) {
+          this.strapiService.getContractTemplates(locale).subscribe({
+            next: (response) => {
+              if (response.data?.length) {
+                this.addContract(response.data[0], data, seenLocales);
+              }
+              completed++;
+              if (completed === localeCodes.length) {
+                this.contracts.set([...contractsSnapshot()]);
+                this.loading.set(false);
+              }
+            },
+            error: () => {
+              completed++;
+              if (completed === localeCodes.length) {
+                this.contracts.set([...contractsSnapshot()]);
+                this.loading.set(false);
+              }
             }
-          },
-          error: (err) => {
-            this.error.set('Failed to load Portuguese contract template.');
-            console.error('Error loading Portuguese contract:', err);
-            this.loading.set(false);
-          }
-        });
+          });
+        }
       },
       error: (err) => {
-        this.error.set('Failed to load English contract template.');
-        console.error('Error loading English contract:', err);
+        this.error.set('Failed to load contract templates.');
+        console.error('Error loading contracts:', err);
         this.loading.set(false);
       }
     });
+    
+    const contractsSnapshot = () => this.contracts();
+  }
+
+  private collectLocaleCodes(baseEntry: { locale: string; localizations?: Array<{ locale: string }> }): string[] {
+    const codes = new Set<string>();
+    
+    if (baseEntry.localizations?.length) {
+      for (const loc of baseEntry.localizations) {
+        if (loc.locale && loc.locale !== baseEntry.locale) {
+          codes.add(loc.locale);
+        }
+      }
+    }
+    
+    if (codes.size === 0) {
+      for (const fallback of ['pt-BR', 'es', 'fr', 'de']) {
+        if (fallback !== baseEntry.locale) {
+          codes.add(fallback);
+        }
+      }
+    }
+    
+    return [...codes];
+  }
+
+  private addContract(
+    template: { locale: string; sections: any[] },
+    data: ContractData,
+    seenLocales: Set<string>
+  ): void {
+    const locale = template.locale || 'en';
+    if (seenLocales.has(locale)) return;
+    seenLocales.add(locale);
+    
+    const result = this.renderContract(template.sections ?? [], data);
+    const current = this.contracts();
+    current.push({
+      locale,
+      title: `${this.localeDisplayName(locale)} Contract`,
+      html: result.html
+    });
+    this.contracts.set(current);
+  }
+
+  private localeDisplayName(locale: string): string {
+    const names: Record<string, string> = {
+      en: 'English',
+      'pt-BR': 'Portuguese',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German'
+    };
+    return names[locale] || locale;
   }
   
-  /** Renders all three formats (plain, html, markdown) from template sections */
   private renderContract(
-    sections: Array<{ heading: string; body?: Array<{ type: string; children?: Array<{ text?: string }> }>; body_html?: string; body_markdown?: string }>,
+    sections: Array<{ heading: string; body?: Array<{ type: string; children?: Array<{ text?: string; bold?: boolean }> }>; body_html?: string | null; body_markdown?: string | null }>,
     data: ContractData
   ): { plain: string; html: string; markdown: string } {
     let plain = '';
@@ -317,26 +370,45 @@ export class ContractFormComponent {
         markdown += `\n## ${section.heading}\n\n`;
       }
       
-      // Plain-text from body blocks
       if (section.body) {
         for (const block of section.body) {
           if (block.type === 'paragraph' && block.children) {
-            const text = block.children.map(c => c.text ?? '').join('');
-            if (text.trim()) {
-              plain += this.replacePlaceholders(text, data) + '\n';
+            const plainText = block.children.map(c => c.text ?? '').join('');
+            if (plainText.trim()) {
+              plain += this.replacePlaceholders(plainText, data) + '\n';
             }
           }
         }
       }
       
-      // HTML from body_html
-      if (section.body_html) {
+      if (section.body) {
+        for (const block of section.body) {
+          if (block.type === 'paragraph' && block.children) {
+            const htmlContent = block.children.map(c => {
+              const text = this.replacePlaceholders(c.text ?? '', data);
+              return c.bold ? `<strong>${text}</strong>` : text;
+            }).join('');
+            if (htmlContent.trim()) {
+              html += `<p>${htmlContent}</p>`;
+            }
+          }
+        }
+      } else if (section.body_html) {
         html += this.replacePlaceholders(section.body_html, data);
       }
       
-      // Markdown from body_markdown
-      if (section.body_markdown) {
-        markdown += this.replacePlaceholders(section.body_markdown, data) + '\n\n';
+      if (section.body) {
+        for (const block of section.body) {
+          if (block.type === 'paragraph' && block.children) {
+            const mdContent = block.children.map(c => {
+              const text = this.replacePlaceholders(c.text ?? '', data);
+              return c.bold ? `**${text}**` : text;
+            }).join('');
+            if (mdContent.trim()) {
+              markdown += mdContent + '\n\n';
+            }
+          }
+        }
       }
     }
     

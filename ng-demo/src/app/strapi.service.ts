@@ -7,20 +7,17 @@ export interface Section {
   id: number;
   order: number;
   heading: string;
-  body: any; // This would be the blocks content
+  body: any;
 }
 
 export interface ContractTemplate {
   id: number;
-  key: string;
+  documentId?: string;
   title: string;
   version: string;
-  effectiveFrom: string;
-  effectiveTo: string;
-  description: string;
   sections: Section[];
-  placeholders: any;
   locale: string;
+  localizations?: Array<{ id: number; locale: string }>;
 }
 
 export interface StrapiResponse {
@@ -36,19 +33,17 @@ export class StrapiService {
 
   constructor(private http: HttpClient) {}
 
-  getContractTemplate(templateKey: string, locale: string): Observable<StrapiResponse> {
+  getContractTemplates(locale?: string): Observable<StrapiResponse> {
     const url = `${this.apiUrl}/contract-templates`;
     const headers = new HttpHeaders({
       'Authorization': `Bearer ${environment.strapiApiKey}`
     });
 
-    return this.http.get<StrapiResponse>(url, {
-      headers: headers,
-      params: {
-        'filters[key][$eq]': templateKey,
-        'locale': locale,
-        'populate': '*'
-      }
-    });
+    const params: Record<string, string> = { populate: 'sections' };
+    if (locale) {
+      params['locale'] = locale;
+    }
+
+    return this.http.get<StrapiResponse>(url, { headers, params });
   }
 }
