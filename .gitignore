@@ -30,13 +30,13 @@ yarn-error.log
 .history/*
 
 # Miscellaneous
-/.angular/cache
+.angular/cache
 .sass-cache/
-/connect.lock
-/coverage
-/libpeerconnection.log
+connect.lock
+ng-demo/coverage
+libpeerconnection.log
 testem.log
-/typings
+ng-demo/typings
 __screenshots__/
 
 # System files
